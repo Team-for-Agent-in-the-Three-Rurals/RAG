@@ -1,0 +1,34 @@
+services:
+  rag-api:
+    build: .
+    ports:
+      - "8000:8000"          # 仅开放 API 端口；Milvus/PostgreSQL 端口不暴露公网
+    environment:
+      RETRIEVER_BACKEND: ${RETRIEVER_BACKEND:-mock}
+      MILVUS_HOST: ${MILVUS_HOST:-milvus}
+      MILVUS_PORT: ${MILVUS_PORT:-19530}
+      MILVUS_COLLECTION: ${MILVUS_COLLECTION:-sannong_kb}
+      EMBEDDING_DIM: ${EMBEDDING_DIM:-1024}
+      API_TOKEN: ${API_TOKEN:-}
+    depends_on:
+      milvus:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Milvus Standalone（切全国库时改 MILVUS_HOST 指向远端即可，本段可注释掉）
+  milvus:
+    image: milvusdb/milvus:v2.4.15
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_USE_EMBED: "true"
+      COMMON_STORAGETYPE: local
+    volumes:
+      - milvus_data:/var/lib/milvus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      start_period: 90s
+    restart: unless-stopped
+
+volumes:
+  milvus_data:
